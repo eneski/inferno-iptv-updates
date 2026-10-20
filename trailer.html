@@ -42,7 +42,10 @@ window.addEventListener('message', function (e) {
   var d = e.data || {};
   if (!player || d.src !== 'inferno-app') return;
   if (d.cmd === 'toggle') { if (player.getPlayerState() === 1) player.pauseVideo(); else player.playVideo(); }
+  if (d.cmd === 'play') player.playVideo();
+  if (d.cmd === 'pause') player.pauseVideo();
   if (d.cmd === 'seek') player.seekTo(Math.max(0, player.getCurrentTime() + (+d.by || 0)), true);
+  if (d.cmd === 'seekTo') player.seekTo(Math.max(0, +d.t || 0), true);
   if (d.cmd === 'unmute') { player.unMute(); player.setVolume(100); }
 });
 </script>
