@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Inferno IPTV – Trailer</title>
+<style>html, body { margin: 0; height: 100%; background: #000; overflow: hidden; } #p { position: absolute; inset: 0; width: 100%; height: 100%; }</style>
+</head>
+<body>
+<div id="p"></div>
+<script>
+/* Abspielseite für Trailer der Inferno-IPTV-App.
+   YouTube spielt eingebettete Videos nur ab, wenn die einbettende Seite eine Web-Adresse hat –
+   die App bindet deshalb diese Seite ein und steuert sie per postMessage. */
+var key = new URLSearchParams(location.search).get('v') || (location.hash || '').replace('#', '');
+var player = null, timer = 0;
+function send(m) { m.src = 'inferno-trailer'; try { window.parent.postMessage(m, '*'); } catch (e) { /* egal */ } }
+if (!/^[\w-]{11}$/.test(key)) send({ type: 'error', code: 'key' });
+window.onYouTubeIframeAPIReady = function () {
+  player = new YT.Player('p', {
+    videoId: key,
+    host: 'https://www.youtube-nocookie.com',
+    playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1, playsinline: 1, iv_load_policy: 3, fs: 0, disablekb: 1, hl: 'de' },
+    events: {
+      onReady: function () {
+        player.playVideo();
+        // Startet der Ton-Autostart nicht, stumm starten (die App bietet dann „Ton an“ an)
+        setTimeout(function () { if (player.getPlayerState() !== 1) { player.mute(); player.playVideo(); } }, 1500);
+        send({ type: 'ready', duration: player.getDuration() });
+        clearInterval(timer);
+        timer = setInterval(function () {
+          if (player && player.getCurrentTime) send({ type: 'time', time: player.getCurrentTime(), duration: player.getDuration(), muted: player.isMuted(), state: player.getPlayerState() });
+        }, 1000);
+      },
+      onStateChange: function (e) { send({ type: 'state', state: e.data }); if (e.data === 0) send({ type: 'ended' }); },
+      onError: function (e) { send({ type: 'error', code: e.data }); }
+    }
+  });
+};
+window.addEventListener('message', function (e) {
+  var d = e.data || {};
+  if (!player || d.src !== 'inferno-app') return;
+  if (d.cmd === 'toggle') { if (player.getPlayerState() === 1) player.pauseVideo(); else player.playVideo(); }
+  if (d.cmd === 'seek') player.seekTo(Math.max(0, player.getCurrentTime() + (+d.by || 0)), true);
+  if (d.cmd === 'unmute') { player.unMute(); player.setVolume(100); }
+});
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
