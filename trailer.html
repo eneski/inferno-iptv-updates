@@ -17,23 +17,29 @@ var key = new URLSearchParams(location.search).get('v') || (location.hash || '')
 var player = null, timer = 0;
 function send(m) { m.src = 'inferno-trailer'; try { window.parent.postMessage(m, '*'); } catch (e) { /* egal */ } }
 if (!/^[\w-]{11}$/.test(key)) send({ type: 'error', code: 'key' });
+var QNAME = { highres: '4K', hd2160: '4K', hd1440: '1440p', hd1080: '1080p', hd720: '720p', large: '480p', medium: '360p', small: '240p', tiny: '144p' };
 window.onYouTubeIframeAPIReady = function () {
   player = new YT.Player('p', {
     videoId: key,
     host: 'https://www.youtube-nocookie.com',
-    playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1, playsinline: 1, iv_load_policy: 3, fs: 0, disablekb: 1, hl: 'de' },
+    playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1, playsinline: 1, iv_load_policy: 3, fs: 0, disablekb: 1, hl: 'de', vq: 'hd1080' },
     events: {
       onReady: function () {
+        try { player.setPlaybackQuality('hd1080'); } catch (e) { /* egal */ }
+        player.unMute(); player.setVolume(100);
         player.playVideo();
-        // Startet der Ton-Autostart nicht, stumm starten (die App bietet dann „Ton an“ an)
-        setTimeout(function () { if (player.getPlayerState() !== 1) { player.mute(); player.playVideo(); } }, 1500);
         send({ type: 'ready', duration: player.getDuration() });
         clearInterval(timer);
         timer = setInterval(function () {
-          if (player && player.getCurrentTime) send({ type: 'time', time: player.getCurrentTime(), duration: player.getDuration(), muted: player.isMuted(), state: player.getPlayerState() });
+          if (player && player.getCurrentTime) send({ type: 'time', time: player.getCurrentTime(), duration: player.getDuration(), muted: player.isMuted(), state: player.getPlayerState(), quality: QNAME[player.getPlaybackQuality()] || '' });
         }, 1000);
       },
-      onStateChange: function (e) { send({ type: 'state', state: e.data }); if (e.data === 0) send({ type: 'ended' }); },
+      // Nur wenn der Browser Ton-Autostart wirklich verweigert: stumm starten (die App bietet „Ton an“)
+      onAutoplayBlocked: function () { player.mute(); player.playVideo(); },
+      onStateChange: function (e) {
+        if (e.data === 1) { try { player.setPlaybackQuality('hd1080'); } catch (x) { /* egal */ } }
+        send({ type: 'state', state: e.data }); if (e.data === 0) send({ type: 'ended' });
+      },
       onError: function (e) { send({ type: 'error', code: e.data }); }
     }
   });
